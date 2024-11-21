@@ -23,3 +23,5 @@ Discover the world of desserts with this interactive app! The Global Dessert Exp
 1. Clone the repository:
    ```bash
    git clone https://github.com/your-username/dessert_explorer.git
+pip install -r requirements.txt
+streamlit run dessert_explorer.py
