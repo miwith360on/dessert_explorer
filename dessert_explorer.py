@@ -1,78 +1,66 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 
-# Load dataset
-@st.cache_data
-def load_data():
-    return pd.read_csv("validated_global_dessert_data.csv")
-
-# App title
-st.title("🍰 Welcome to the Global Dessert Explorer!")
-st.markdown("""
-### About This App:
-The **Global Dessert Explorer** is your gateway to discovering desserts from around the world! Whether you're a food enthusiast, a dessert lover, or just curious, this app allows you to:
-- Filter desserts by region, flavor profile, and calorie range.
-- Explore detailed information about each dessert, including cultural trivia.
-- Visualize trends in desserts across regions and flavor profiles.
-
-Use the filters in the sidebar to narrow down your search and find desserts that pique your interest. Enjoy exploring the sweet world of desserts! 🌍
-""")
-
-# Load data
-data = load_data()
-
-# Sidebar filters
+# Title and Introduction
+st.title("🍰 Global Dessert Explorer")
+st.write("Explore the world's most delightful desserts!")
 st.sidebar.header("Filter Options")
-regions = st.sidebar.multiselect("Select Region(s):", data["region"].unique(), default=data["region"].unique())
-flavor_profiles = st.sidebar.multiselect("Select Flavor Profile(s):", data["flavor_profile"].str.split(", ").explode().unique(), default=[])
-calorie_range = st.sidebar.slider("Select Calorie Range:", int(data["calories"].min()), int(data["calories"].max()), (50, 1000))
 
-# Apply filters
-filtered_data = data[
-    (data["region"].isin(regions)) &
-    (data["calories"].between(calorie_range[0], calorie_range[1]))
-]
-if flavor_profiles:
-    filtered_data = filtered_data[filtered_data["flavor_profile"].str.contains("|".join(flavor_profiles), case=False, na=False)]
+# Load Dataset
+try:
+    data = pd.read_csv("validated_global_dessert_data.csv")
+    st.success("Dataset loaded successfully!")
+except FileNotFoundError:
+    st.error("Dataset not found. Please ensure 'validated_global_dessert_data.csv' is available.")
+    st.stop()
 
-# Display filtered data
-st.header("Filtered Desserts")
-st.write(f"Showing {len(filtered_data)} desserts")
-st.dataframe(filtered_data[["dessert_name", "region", "flavor_profile", "calories", "prep_time"]])
+# Data Cleaning - Replace "unknown" with meaningful placeholders
+data['region'] = data['region'].replace("unknown", "Not specified")
+data['flavor_profile'] = data['flavor_profile'].replace("unknown", "Not specified")
+data['cultural_trivia'] = data['cultural_trivia'].replace("No trivia available", "Trivia not provided")
 
-# Dessert details
-st.header("Dessert Details")
-selected_dessert = st.selectbox("Select a Dessert:", filtered_data["dessert_name"].unique())
+# Filters
+regions = ["All"] + sorted(data['region'].unique())
+flavors = ["All"] + sorted(data['flavor_profile'].unique())
 
-if selected_dessert:
-    dessert = filtered_data[filtered_data["dessert_name"] == selected_dessert].iloc[0]
-    st.subheader(dessert["dessert_name"])
-    st.image(dessert["image_url"], caption=dessert["dessert_name"], use_column_width=True)
-    st.write(f"**Region:** {dessert['region']}")
-    st.write(f"**Flavor Profile:** {dessert['flavor_profile']}")
-    st.write(f"**Calories:** {dessert['calories']}")
-    st.write(f"**Prep Time:** {dessert['prep_time']} minutes")
-    st.write(f"**Trivia:** {dessert['cultural_trivia']}")
+region_filter = st.sidebar.selectbox("Select Region", regions)
+flavor_filter = st.sidebar.selectbox("Select Flavor Profile", flavors)
 
-# Visualizations
-st.header("Visualizations")
-if st.checkbox("Show Dessert Counts by Region"):
-    region_counts = filtered_data["region"].value_counts()
-    plt.figure(figsize=(10, 6))
-    plt.bar(region_counts.index, region_counts.values)
-    plt.title("Count of Desserts by Region")
-    plt.xlabel("Region")
-    plt.ylabel("Number of Desserts")
-    st.pyplot(plt)
+filtered_data = data.copy()
 
-if st.checkbox("Show Average Calories and Prep Time by Region"):
-    avg_stats_by_region = filtered_data.groupby("region")[["calories", "prep_time"]].mean()
-    plt.figure(figsize=(10, 6))
-    plt.plot(avg_stats_by_region.index, avg_stats_by_region["calories"], marker="o", label="Average Calories")
-    plt.plot(avg_stats_by_region.index, avg_stats_by_region["prep_time"], marker="o", label="Average Prep Time (minutes)")
-    plt.title("Average Calories and Prep Time by Region")
-    plt.xlabel("Region")
-    plt.ylabel("Average Value")
-    plt.legend()
-    st.pyplot(plt)
+if region_filter != "All":
+    filtered_data = filtered_data[filtered_data['region'] == region_filter]
+if flavor_filter != "All":
+    filtered_data = filtered_data[filtered_data['flavor_profile'] == flavor_filter]
+
+# Display Filtered Data
+st.subheader("Filtered Desserts")
+st.dataframe(filtered_data)
+
+# Random Dessert with Trivia
+if st.button("Surprise Me with a Dessert!"):
+    if len(filtered_data) > 0:
+        random_dessert = filtered_data.sample(1).iloc[0]
+        st.image(random_dessert["image_url"], width=300)
+        st.markdown(f"### {random_dessert['dessert_name']}")
+        st.markdown(f"**Region:** {random_dessert['region']}")
+        st.markdown(f"**Flavor Profile:** {random_dessert['flavor_profile']}")
+        st.markdown(f"**Calories:** {random_dessert['calories']} kcal")
+        st.markdown(f"**Prep Time:** {random_dessert['prep_time']} minutes")
+        st.markdown(f"**Trivia:** {random_dessert['cultural_trivia']}")
+    else:
+        st.warning("No desserts found for the selected filters.")
+else:
+    st.info("Use the 'Surprise Me' button to display a random dessert.")
+
+# Additional Trivia Button
+st.subheader("🧠 Dessert Trivia")
+if st.button("Show Random Trivia"):
+    random_trivia = filtered_data.sample(1)["cultural_trivia"].iloc[0]
+    st.markdown(f"**Trivia:** {random_trivia}")
+else:
+    st.info("Click the button to see a random trivia fact.")
+
+# Note about placeholders
+st.sidebar.info("Desserts with missing details have placeholders. Add new entries to improve the dataset.")
+
