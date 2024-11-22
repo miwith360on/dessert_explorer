@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 # Load dataset
 @st.cache_data
 def load_data():
-    return pd.read_csv("expanded_global_dessert_data.csv")
+    return pd.read_csv("validated_global_dessert_data.csv")
 
 # App title
 st.title("🍰 Welcome to the Global Dessert Explorer!")
