@@ -1,58 +1,48 @@
 import streamlit as st
 import pandas as pd
+import random
 
-# Title and description
+# Load the dataset
+@st.cache
+def load_data():
+    return pd.read_csv("validated_global_dessert_data.csv")
+
+data = load_data()
+
+# App title and intro
 st.title("🌍 Global Dessert Explorer")
-st.write("Discover desserts from around the world!")
-st.write("🎉 Use the sidebar to filter desserts or explore the data!")
-
-# Load the dessert dataset
-try:
-    data = pd.read_csv("validated_global_dessert_data.csv")
-    st.write("Dataset loaded successfully!")
-except FileNotFoundError:
-    st.error("Dataset not found. Please upload 'validated_global_dessert_data.csv' to the correct directory.")
-    data = None
-
-# Load filtering options
-try:
-    filter_options = pd.read_csv("filter_options_summary.csv")
-    regions = eval(filter_options[filter_options["Filter"] == "Region"]["Options"].values[0])
-    flavor_profiles = eval(filter_options[filter_options["Filter"] == "Flavor Profile"]["Options"].values[0])
-except FileNotFoundError:
-    st.warning("Filter options file not found. Defaulting to basic options.")
-    regions = ["Global", "France", "Italy", "North America", "Asia", "Europe"]
-    flavor_profiles = ["fruity", "sweet", "creamy", "light", "citrusy", "chocolatey", "earthy"]
+st.sidebar.header("Explore by Filters")
 
 # Sidebar filters
-if data is not None:
-    st.sidebar.header("Filter Desserts")
+regions = data['region'].unique()
+selected_region = st.sidebar.selectbox("Filter by Region", regions)
 
-    # Region filter
-    selected_region = st.sidebar.selectbox("Select a Region", ["All"] + regions)
-    # Flavor profile filter
-    selected_flavor = st.sidebar.selectbox("Select a Flavor Profile", ["All"] + flavor_profiles)
+flavor_profiles = data['flavor_profile'].unique()
+selected_flavor = st.sidebar.selectbox("Filter by Flavor Profile", flavor_profiles)
 
-    # Apply filters
-    filtered_data = data
-    if selected_region != "All":
-        filtered_data = filtered_data[filtered_data["region"] == selected_region]
-    if selected_flavor != "All":
-        filtered_data = filtered_data[filtered_data["flavor_profile"].str.contains(selected_flavor, na=False, case=False)]
+filtered_data = data[
+    (data['region'] == selected_region) &
+    (data['flavor_profile'] == selected_flavor)
+]
 
-    # Display filtered data
-    st.subheader("Filtered Desserts")
-    st.write(filtered_data)
+# Display filtered data
+st.write(f"Filtered Desserts: {len(filtered_data)}")
+st.dataframe(filtered_data[['dessert_name', 'region', 'flavor_profile', 'calories', 'prep_time']])
 
-    # Add bar chart for calories distribution
-    st.subheader("Dessert Calories Distribution")
-    st.bar_chart(filtered_data["calories"])
+# Random Dessert Button
+if st.button("Surprise Me with a Dessert!"):
+    random_dessert = filtered_data.sample(1).iloc[0]
+    st.subheader(f"🍰 {random_dessert['dessert_name']}")
+    st.image(random_dessert['image_url'])
+    st.write(f"Region: {random_dessert['region']}")
+    st.write(f"Flavor Profile: {random_dessert['flavor_profile']}")
+    st.write(f"Calories: {random_dessert['calories']}")
+    st.write(f"Prep Time: {random_dessert['prep_time']} minutes")
+    st.write(f"Trivia: {random_dessert['cultural_trivia']}")
 
-    # Add random dessert generator
-    if st.button("Surprise Me with a Dessert!"):
-        random_dessert = filtered_data.sample(1)
-        st.write("Here's your random dessert:")
-        st.write(random_dessert[["dessert_name", "region", "calories", "prep_time"]])
-        st.image(random_dessert["image_url"].values[0], width=300)
-else:
-    st.warning("The app cannot function without the dataset. Please ensure it's uploaded.")
+# Trivia Section
+st.subheader("🧠 Dessert Trivia")
+if st.button("Show Random Trivia"):
+    non_empty_trivia = data[data['cultural_trivia'] != "No trivia available"]
+    random_trivia = non_empty_trivia.sample(1).iloc[0]
+    st.write(f"Did you know? {random_trivia['cultural_trivia']} ({random_trivia['dessert_name']})")
