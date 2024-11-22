@@ -1,49 +1,58 @@
 import streamlit as st
 import pandas as pd
 
-# Header and instructions
+# Title and description
 st.title("🌍 Global Dessert Explorer")
 st.write("Discover desserts from around the world!")
-st.write("🎉 Use the sidebar to filter desserts or click 'Surprise Me with a Dessert!' for a random treat.")
+st.write("🎉 Use the sidebar to filter desserts or explore the data!")
 
-# Load the dataset
+# Load the dessert dataset
 try:
-    data = pd.read_csv("enriched_dessert_data.csv.csv")
+    data = pd.read_csv("validated_global_dessert_data.csv")
     st.write("Dataset loaded successfully!")
 except FileNotFoundError:
-    st.error("Dataset not found. Please upload 'enriched_dessert_data.csv.csv' to the correct directory.")
+    st.error("Dataset not found. Please upload 'validated_global_dessert_data.csv' to the correct directory.")
     data = None
 
-# Sidebar for filtering
+# Load filtering options
+try:
+    filter_options = pd.read_csv("filter_options_summary.csv")
+    regions = eval(filter_options[filter_options["Filter"] == "Region"]["Options"].values[0])
+    flavor_profiles = eval(filter_options[filter_options["Filter"] == "Flavor Profile"]["Options"].values[0])
+except FileNotFoundError:
+    st.warning("Filter options file not found. Defaulting to basic options.")
+    regions = ["Global", "France", "Italy", "North America", "Asia", "Europe"]
+    flavor_profiles = ["fruity", "sweet", "creamy", "light", "citrusy", "chocolatey", "earthy"]
+
+# Sidebar filters
 if data is not None:
-    st.sidebar.header("Search Desserts")
-    search_term = st.sidebar.text_input("Enter a keyword to search (e.g., Chocolate)")
+    st.sidebar.header("Filter Desserts")
 
-    # Filter the dataset based on the search term
-    if search_term:
-        filtered_data = data[data['Dessert Name'].str.contains(search_term, case=False, na=False)]
-        st.write(f"Results for '{search_term}':")
-        st.write(filtered_data)
-    else:
-        st.write("Showing all desserts:")
-        st.write(data)
+    # Region filter
+    selected_region = st.sidebar.selectbox("Select a Region", ["All"] + regions)
+    # Flavor profile filter
+    selected_flavor = st.sidebar.selectbox("Select a Flavor Profile", ["All"] + flavor_profiles)
 
-    # Add a bar chart
-    st.subheader("Dessert Distribution")
-    dessert_counts = data["Dessert Name"].value_counts()
-    st.bar_chart(dessert_counts)
+    # Apply filters
+    filtered_data = data
+    if selected_region != "All":
+        filtered_data = filtered_data[filtered_data["region"] == selected_region]
+    if selected_flavor != "All":
+        filtered_data = filtered_data[filtered_data["flavor_profile"].str.contains(selected_flavor, na=False, case=False)]
 
-    # Add dessert images
-    st.subheader("Dessert Images")
-    for index, row in data.iterrows():
-        st.write(f"### {row['Dessert Name']}")
-        st.image(row["Image URL"], width=300)
+    # Display filtered data
+    st.subheader("Filtered Desserts")
+    st.write(filtered_data)
 
-    # Add a random dessert button
+    # Add bar chart for calories distribution
+    st.subheader("Dessert Calories Distribution")
+    st.bar_chart(filtered_data["calories"])
+
+    # Add random dessert generator
     if st.button("Surprise Me with a Dessert!"):
-        random_dessert = data.sample(1)
+        random_dessert = filtered_data.sample(1)
         st.write("Here's your random dessert:")
-        st.write(random_dessert)
+        st.write(random_dessert[["dessert_name", "region", "calories", "prep_time"]])
+        st.image(random_dessert["image_url"].values[0], width=300)
 else:
     st.warning("The app cannot function without the dataset. Please ensure it's uploaded.")
-
